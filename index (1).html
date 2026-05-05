@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>F.R.I.D.A.Y. OS — Stark Industries</title>
+<meta name="theme-color" content="#00d4ff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="F.R.I.D.A.Y.">
+<meta name="description" content="Stark Industries AI Assistant">
+
+<!-- PWA Manifest (inline blob — no server needed) -->
+<script>
+const manifest={name:"F.R.I.D.A.Y. OS — Stark Industries",short_name:"F.R.I.D.A.Y.",start_url:"./",display:"standalone",background_color:"#020c16",theme_color:"#00d4ff",orientation:"portrait-primary",
+icons:[{src:"data:image/svg+xml,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='%23020c16'/><circle cx='96' cy='96' r='70' fill='none' stroke='%2300d4ff' stroke-width='4'/><circle cx='96' cy='96' r='18' fill='%2300d4ff'/></svg>`),sizes:"192x192",type:"image/svg+xml"}]};
+const b=new Blob([JSON.stringify(manifest)],{type:'application/json'});
+const l=document.createElement('link');l.rel='manifest';l.href=URL.createObjectURL(b);document.currentScript.after(l);
+</script>
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='40' fill='%23020c16'/><circle cx='90' cy='90' r='65' fill='none' stroke='%2300d4ff' stroke-width='5'/><circle cx='90' cy='90' r='18' fill='%2300d4ff'/></svg>">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="friday.css">
+</head>
+<body>
+<div class="shell">
+  <canvas id="particleCanvas"></canvas>
+  <div class="grid-bg"></div>
+  <div class="scanline"></div>
+  <div class="corner tl"></div><div class="corner tr"></div>
+  <div class="corner bl"></div><div class="corner br"></div>
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="arc" onclick="openSettings()" title="Settings"><div class="arc-dot"></div></div>
+      <div>
+        <div class="hdr-title">F.R.I.D.A.Y.</div>
+        <div class="hdr-sub">FULLY RESPONSIVE INTELLIGENT DIGITAL ASSISTANT FOR YOU</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="status-row">
+        <div class="sdot" id="sdot"></div>
+        <div class="stxt" id="statusTxt">INITIALIZING</div>
+      </div>
+      <div class="model-badge" id="modelBadge">GEMINI 2.5 FLASH</div>
+      <div class="browser-badge warn" id="browserBadge">DETECTING...</div>
+    </div>
+  </div>
+
+  <!-- METRICS -->
+  <div class="metrics">
+    <div class="metric"><div class="mlbl">Neural Load</div><div class="mval" id="mNeural">12%</div><div class="mbar"><div class="mfill" id="mNF" style="width:12%;background:var(--hud)"></div></div></div>
+    <div class="metric"><div class="mlbl">Latency</div><div class="mval" id="mResp">--ms</div><div class="mbar"><div class="mfill" id="mRF" style="width:5%;background:var(--gold)"></div></div></div>
+    <div class="metric"><div class="mlbl">Voice Clarity</div><div class="mval" id="mVoice">--</div><div class="mbar"><div class="mfill" id="mVF" style="width:0%;background:var(--green)"></div></div></div>
+    <div class="metric"><div class="mlbl">STT Engine</div><div class="mval" id="mSTT" style="font-size:10px">DETECTING</div><div class="mbar"><div class="mfill" style="width:100%;background:var(--hud)"></div></div></div>
+    <div class="metric"><div class="mlbl">Uplink</div><div class="mval" id="mUplink" style="color:#444;font-size:11px">NO KEY</div><div class="mbar"><div class="mfill" id="mUF" style="width:8%;background:#444"></div></div></div>
+    <div class="metric clickable" onclick="openWorldMap()"><div class="mlbl">World Monitor</div><div class="mval" style="font-size:10px;color:var(--green)">🌍 LIVE</div><div class="mbar"><div class="mfill" style="width:100%;background:var(--green)"></div></div></div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" data-tab="chat"    onclick="switchTab('chat')">◈ FRIDAY AI</div>
+    <div class="tab"        data-tab="finance" onclick="switchTab('finance')">📈 MARKETS</div>
+  </div>
+
+  <!-- QUOTA ALERT -->
+  <div class="quota-alert" id="quotaAlert">
+    <span>⚠ RATE LIMIT — Cooling down</span>
+    <div class="quota-bar-wrap"><div class="quota-bar" id="quotaBar" style="width:100%"></div></div>
+    <span id="quotaTimer">60s</span>
+  </div>
+
+  <!-- ═══ CHAT PANEL ═══ -->
+  <div class="panel active" id="panel-chat">
+    <div class="content">
+      <!-- VOICE CORE -->
+      <div class="voice-core">
+        <div class="waveform-wrap"><canvas id="waveCanvas"></canvas></div>
+        <div class="viz-row">
+          <div class="viz-dots standby" id="vizDots">
+            <div class="vdot"></div><div class="vdot"></div><div class="vdot"></div><div class="vdot"></div><div class="vdot"></div>
+          </div>
+          <div class="orb-ring">
+            <div class="orb" id="orb" onclick="handleOrbClick()">
+              <svg id="micSvg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--hud)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+            </div>
+          </div>
+          <div class="viz-dots standby" id="vizDots2">
+            <div class="vdot"></div><div class="vdot"></div><div class="vdot"></div><div class="vdot"></div><div class="vdot"></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;width:100%">
+          <div class="orb-state" id="orbState">TAP TO SPEAK</div>
+          <div class="orb-tip" id="orbTip">Click orb to activate voice — or type below</div>
+        </div>
+        <div class="transcript-zone" id="transcript">Awaiting your command, boss...</div>
+      </div>
+      <!-- CHAT LOG -->
+      <div class="chatlog" id="chatlog">
+        <div class="msg friday">
+          <div class="ftag">▶ F.R.I.D.A.Y.</div>
+          <div class="bubble">All systems online. I support both Gemini and OpenRouter (free models). Tap the arc reactor icon to configure your API key and preferred provider. Tap the orb or type below, boss.</div>
+          <div class="mmeta">FRIDAY // BOOT_COMPLETE</div>
+        </div>
+      </div>
+    </div>
+    <!-- BOTTOM -->
+    <div class="bottom">
+      <div class="quick-cmds">
+        <span class="qc" onclick="quickCmd('Run a full systems diagnostic')">⚙ Diagnostics</span>
+        <span class="qc" onclick="quickCmd('What can you do?')">◈ Capabilities</span>
+        <span class="qc" onclick="quickCmd('Get the latest world news')">📰 News</span>
+        <span class="qc" onclick="quickCmd('Search the web for latest AI breakthroughs')">🔍 Web Search</span>
+        <span class="qc" onclick="openWorldMap()">🌍 World Map</span>
+        <span class="qc" onclick="quickCmd('What is the current date and time?')">◎ Time</span>
+        <span class="qc" onclick="quickCmd('Analyze current threat level')">⚡ Threat</span>
+        <span class="qc" onclick="openSettings()">⚙ Settings</span>
+      </div>
+      <div class="input-row">
+        <input class="tinp" id="textInp" placeholder="Command me, boss..."/>
+        <button class="send-btn" onclick="sendText()">TRANSMIT</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ FINANCE PANEL ═══ -->
+  <div class="panel" id="panel-finance">
+    <div class="finance-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+        <span style="font-family:'Orbitron',monospace;font-size:11px;color:var(--hud);letter-spacing:2px">STARK MARKET INTEL</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="fin-status" id="finStatus">LOADING...</span>
+          <button class="fin-refresh" onclick="refreshFinance()">↻ REFRESH</button>
+        </div>
+      </div>
+      <div class="fin-grid" id="finGrid"><!-- tickers injected by JS --></div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(0,212,255,0.3);letter-spacing:1px;flex-shrink:0">
+        ◈ FINANCIAL NEWS FEED
+      </div>
+      <div class="fin-news" id="finNews"><!-- news injected by JS --></div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(0,212,255,0.2);letter-spacing:1px;flex-shrink:0;padding-top:4px">
+        ⚠ Prices are simulated demo data. News links are curated static items. Connect a finance API key in Settings for live data.
+      </div>
+    </div>
+  </div>
+
+</div><!-- .shell -->
+
+<!-- WORLD MAP MODAL -->
+<div class="map-overlay hidden" id="mapOverlay">
+  <div class="map-hdr">
+    <div class="map-title">🌍 STARK WORLD MONITOR — LIVE</div>
+    <button class="map-close" onclick="closeWorldMap()">✕ CLOSE</button>
+  </div>
+  <div class="map-frame"><div id="worldMap"></div></div>
+  <div class="map-footer">
+    <button class="map-btn" onclick="setMapLayer('street',this)">◉ Standard</button>
+    <button class="map-btn" onclick="setMapLayer('satellite',this)">◈ Satellite</button>
+    <button class="map-btn lit" onclick="setMapLayer('dark',this)">◎ Dark Ops</button>
+    <button class="map-btn" onclick="setMapLayer('topo',this)">⬡ Topographic</button>
+    <button class="map-btn" onclick="locateMe()">📍 My Location</button>
+    <button class="map-btn" onclick="addCityMarkers()">🏙 Major Cities</button>
+    <button class="map-btn" onclick="clearMapMarkers()">✕ Clear</button>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay hidden" id="settingsModal">
+  <div class="modal">
+    <div class="modal-title">STARK INDUSTRIES CONFIG</div>
+    <div class="modal-sub">Keys stored in browser localStorage only — never sent anywhere except your chosen AI provider.</div>
+
+    <!-- Provider selector -->
+    <div class="field-label">AI Provider</div>
+    <select class="voice-select" id="providerSelect" onchange="toggleProviderFields()">
+      <option value="gemini">Google Gemini (direct)</option>
+      <option value="openrouter">OpenRouter (higher rate limits)</option>
+    </select>
+    <div class="field-note">OpenRouter gives access to multiple free models with higher rate limits than direct Gemini.</div>
+
+    <!-- Gemini fields -->
+    <div id="geminiFields">
+      <div class="field-label">Gemini API Key</div>
+      <input class="field-input" id="geminiKeyInput" type="password" placeholder="AIza..."/>
+      <div class="field-note">Free at aistudio.google.com → Get API Key. Free tier: 15 req/min, 1500 req/day.</div>
+    </div>
+
+    <!-- OpenRouter fields -->
+    <div id="openrFields" style="display:none">
+      <div class="field-label">OpenRouter API Key</div>
+      <input class="field-input" id="openrKeyInput" type="password" placeholder="sk-or-..."/>
+      <div class="field-note">Free at openrouter.ai. No credit card needed for free models.</div>
+      <div class="field-label">Model</div>
+      <select class="voice-select" id="openrModelSelect"></select>
+      <div class="field-note" style="margin-top:6px;margin-bottom:14px">All models marked :free have no cost. Gemini 2.0 Flash is recommended.</div>
+    </div>
+
+    <div class="modal-sep"></div>
+
+    <div class="field-label">Voice Output</div>
+    <select class="voice-select" id="voiceSelect">
+      <option value="auto">🎯 Auto-Hunt Irish/UK Female (Recommended)</option>
+    </select>
+    <button class="voice-test-btn" onclick="testVoice()">▶ TEST VOICE</button>
+
+    <div class="modal-sep"></div>
+
+    <div class="field-label">HUD Colour Theme</div>
+    <select class="voice-select" id="hudColour" onchange="applyHudColour(this.value)">
+      <option value="#00d4ff">Stark Cyan (Default)</option>
+      <option value="#ffa500">Mark 85 Gold</option>
+      <option value="#00ff88">Rescue Green</option>
+      <option value="#ff3d3d">War Machine Red</option>
+      <option value="#cc88ff">Extremis Purple</option>
+    </select>
+
+    <div class="modal-btns">
+      <button class="mbtn secondary" onclick="closeSettings()">CANCEL</button>
+      <button class="mbtn primary"   onclick="saveSettings()">SAVE & ENGAGE</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="friday.js"></script>
+</body>
+</html>
