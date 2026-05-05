@@ -309,7 +309,7 @@ const TICKERS = [
 
 // Simulated live prices (randomized drift for demo since free finance APIs all need keys)
 const _prices = { BTC:97400, ETH:3820, AAPL:213, TSLA:248, NVDA:875, GOOGL:192 };
-const _prev   = { ...._prices };
+const _prev   = {..._prices };
 
 function loadFinancePanel() {
   renderTickers();
